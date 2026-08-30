@@ -1,7 +1,7 @@
 import { evaluateEligibility, courseConflicts, inferCourseStudyLevel, meetingsConflict, studyLevelsMatch } from "./eligibility";
 import { sameDepartment } from "./department";
 import { buildSearchIndex, scoreLexically, type LexicalMatch, type SearchIndex } from "./search";
-import { matchesAdvancedCourseFilters, type AdvancedCourseFilters } from "./courseFilters";
+import { matchesAdvancedCourseFilters, matchesRequiredElectiveFilters, type AdvancedCourseFilters, type RequiredElectiveFilter } from "./courseFilters";
 import type {
   CompletedCourse,
   Course,
@@ -299,6 +299,7 @@ function rankSingleCourses(input: {
   categoryFilters?: RecommendationCategoryFilters;
   courseTagFilters?: string[];
   creditFilters?: number[];
+  requiredElectiveFilters?: RequiredElectiveFilter[];
   completed: CompletedCourse[];
   dismissedIds: string[];
   scheduledCourses?: CourseSummary[];
@@ -330,6 +331,7 @@ function rankSingleCourses(input: {
   const categoryFilters = input.categoryFilters ?? [];
   const courseTagFilters = new Set(input.courseTagFilters ?? []);
   const creditFilters = input.creditFilters ?? [];
+  const requiredElectiveFilters = input.requiredElectiveFilters ?? [];
   const preferredWeekdays = input.preferredWeekdays ?? input.profile?.preferredWeekdays ?? [];
   const scheduledCourses = input.scheduledCourses ?? input.lockedCourses ?? [];
 
@@ -363,6 +365,7 @@ function rankSingleCourses(input: {
     if (input.hardConstraints && !matchesHardConstraints(course, input.hardConstraints)) return [];
     const category = classifyRecommendationCategory(course, input.profile);
     if (categoryFilters.length > 0 && !categoryFilters.includes(category)) return [];
+    if (categoryFilters.length === 0 && !matchesRequiredElectiveFilters(course, requiredElectiveFilters)) return [];
 
     const lexical = queryText
       ? scoreLexically(searchIndex, course, queryText)
@@ -454,6 +457,7 @@ export function rankCourses(input: {
   categoryFilters?: RecommendationCategoryFilters;
   courseTagFilters?: string[];
   creditFilters?: number[];
+  requiredElectiveFilters?: RequiredElectiveFilter[];
   completed: CompletedCourse[];
   dismissedIds: string[];
   scheduledCourses?: CourseSummary[];

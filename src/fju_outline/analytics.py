@@ -138,6 +138,7 @@ FILTERS: frozenset[str] = frozenset({
     "conflict_filter",
     "core_competency",
     "course_category",
+    "course_requirement",
     "course_tag",
     "credits",
     "department",

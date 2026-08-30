@@ -1,5 +1,5 @@
 import { formatCreditFilterSummary } from "@/domain/creditFilter";
-import type { AdvancedCourseFilters } from "@/domain/courseFilters";
+import type { AdvancedCourseFilters, RequiredElectiveFilter } from "@/domain/courseFilters";
 import type { BroadTimeFilter } from "@/domain/courseFilters";
 import { recommendationCategoryLabels } from "@/domain/recommendation";
 import { weekdayLabels } from "@/domain/schedule";
@@ -15,6 +15,7 @@ export interface RecommendFilters extends AdvancedCourseFilters {
   includeScheduleInfo: boolean;
   categoryFilters: RecommendationCategoryFilters;
   courseTagFilters: string[];
+  requiredElectiveFilters: RequiredElectiveFilter[];
 }
 
 export function createFilters(preferredWeekdays: number[]): RecommendFilters {
@@ -37,6 +38,7 @@ export function createFilters(preferredWeekdays: number[]): RecommendFilters {
     onlineTeaching: { mode: "all" },
     preferredWeekdays,
     relations: { literacy: [], coreCompetencies: [], specialIssues: [], includeIndirect: false },
+    requiredElectiveFilters: [],
     showOtherWeekdays: false,
     teachingLanguages: [],
     teachingMethodCriterion: { mode: "dominant" },
@@ -51,6 +53,7 @@ export function activeFilterCount(filters: RecommendFilters): number {
     !filters.showOtherWeekdays,
     filters.classTime.mode !== "all" || (filters.timeOfDayFilter ?? "all") !== "all",
     filters.creditFilters.length > 0,
+    filters.requiredElectiveFilters.length > 0,
     filters.includeScheduleInfo,
     filters.categoryFilters.length > 0,
     filters.courseTagFilters.length > 0,
@@ -111,6 +114,7 @@ export function appliedFilterTags(filters: RecommendFilters, highCreditOptions: 
     tags.push({ id: "time-of-day", label: labels[filters.timeOfDayFilter as BroadTimeFilter], clear: (f) => ({ ...f, timeOfDayFilter: "all", includeUnknownSchedule: true }) });
   }
   if (filters.creditFilters.length) tags.push({ id: "credits", label: formatCreditFilterSummary(filters.creditFilters, highCreditOptions), clear: (f) => ({ ...f, creditFilters: [] }) });
+  if (filters.requiredElectiveFilters.length) tags.push({ id: "required-elective", label: summarized("修課性質", filters.requiredElectiveFilters), clear: (f) => ({ ...f, requiredElectiveFilters: [] }) });
   if (filters.includeScheduleInfo) tags.push({ id: "schedule-conflicts", label: "避開衝堂", clear: (f) => ({ ...f, includeScheduleInfo: false }) });
   if (filters.categoryFilters.length) tags.push({ id: "categories", label: summarized("課程類別", filters.categoryFilters, recommendationCategoryLabels), clear: (f) => ({ ...f, categoryFilters: [] }) });
   if (filters.courseTagFilters.length) tags.push({ id: "course-tags", label: `官方標籤 ${filters.courseTagFilters.length}`, clear: (f) => ({ ...f, courseTagFilters: [] }) });

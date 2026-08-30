@@ -100,6 +100,39 @@ describe("query-only recommendation ranking", () => {
     });
     expect(results.map((item) => item.course.course_id)).toEqual(["X"]);
   });
+  it("filters required and elective courses across departments when no category is selected", () => {
+    const results = rankCourses({
+      catalog: courses,
+      courseIds: courses.map((item) => item.course_id),
+      vectors: new Float32Array([1, 0, 1, 0, 1, 0, 1, 0]),
+      dimension: 2,
+      query: new Float32Array([1, 0]),
+      profile,
+      categoryFilters: [],
+      requiredElectiveFilters: ["選修"],
+      completed: [],
+      dismissedIds: [],
+      scheduledCourses: [],
+    });
+    expect(results.map((item) => item.course.course_id)).toEqual(["E", "X"]);
+  });
+
+  it("gives selected course categories priority over required and elective filters", () => {
+    const results = rankCourses({
+      catalog: courses,
+      courseIds: courses.map((item) => item.course_id),
+      vectors: new Float32Array([1, 0, 1, 0, 1, 0, 1, 0]),
+      dimension: 2,
+      query: new Float32Array([1, 0]),
+      profile,
+      categoryFilters: ["home_required"],
+      requiredElectiveFilters: ["選修"],
+      completed: [],
+      dismissedIds: [],
+      scheduledCourses: [],
+    });
+    expect(results.map((item) => item.course.course_id)).toEqual(["R"]);
+  });
   it("only keeps courses held on the selected weekdays", () => {
     const monday = {
       ...course("mon", "資工", "選修", "星期一課程"),

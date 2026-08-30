@@ -235,6 +235,8 @@ describe("ExplorePage — complete filter dialog", () => {
     for (const group of ["時間與課表", "課程條件", "上課方式", "評量方式"]) {
       expect(within(dialog).getByRole("button", { name: new RegExp(group) })).toBeInTheDocument();
     }
+    expect(within(dialog).getByRole("button", { name: "必修", pressed: false })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "選修", pressed: false })).toBeInTheDocument();
     expect(dialog.querySelector(".recommend-filter-modal-summary")).toHaveTextContent("0 項條件待保存");
 
     await user.click(within(dialog).getByRole("button", { name: "3 學分", pressed: false }));

@@ -65,6 +65,7 @@ export type AnalyticsFilter =
   | "conflict_filter"
   | "core_competency"
   | "course_category"
+  | "course_requirement"
   | "course_tag"
   | "credits"
   | "department"
@@ -149,6 +150,7 @@ export const FILTERS_WITH_VALUE: ReadonlySet<AnalyticsFilter> = new Set<Analytic
   "assessment_style",
   "class_time",
   "conflict_filter",
+  "course_requirement",
   "course_category",
   "credits",
   "include_unknown_schedule",

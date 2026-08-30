@@ -9,6 +9,10 @@ describe("changedFilters", () => {
     expect(changedFilters(base(), base())).toEqual([]);
   });
 
+  it("records required/elective options as bounded tokens", () => {
+    const next = { ...base(), requiredElectiveFilters: ["必修", "選修"] as Array<"必修" | "選修"> };
+    expect(changedFilters(base(), next)).toEqual([{ filter: "course_requirement", value: "required" }, { filter: "course_requirement", value: "elective" }]);
+  });
   it("names a closed-set filter and the option that was chosen", () => {
     const next = { ...base(), preferredWeekdays: [1, 2, 3, 4, 5, 6] };
     expect(changedFilters(base(), next)).toEqual([{ filter: "weekday", value: "sat" }]);
@@ -75,7 +79,7 @@ describe("changedFilters", () => {
     // where the event would then be silently dropped.
     const allowed = new Set([
       "assessment_method", "assessment_style", "class_time", "conflict_filter", "core_competency",
-      "course_category", "course_tag", "credits", "department", "division", "include_unknown_schedule",
+      "course_category", "course_requirement", "course_tag", "credits", "department", "division", "include_unknown_schedule",
       "instructor", "literacy", "material_language", "online_teaching", "show_other_weekdays",
       "special_issue", "teaching_language", "teaching_method", "weekday",
     ]);

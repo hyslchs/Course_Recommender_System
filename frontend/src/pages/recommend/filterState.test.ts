@@ -17,6 +17,13 @@ describe("recommendation filter state", () => {
     expect(activeFilterCount(base())).toBe(2);
   });
 
+  it("tracks and clears the required/elective condition", () => {
+    const filters = { ...base(), requiredElectiveFilters: ["必修"] as Array<"必修" | "選修"> };
+    expect(activeFilterCount(filters)).toBe(3);
+    expect(appliedFilterTags(filters, HIGH_CREDITS).map((tag) => tag.label)).toContain("修課性質：必修");
+    const cleared = removeAppliedFilters(filters, HIGH_CREDITS, ["required-elective"]);
+    expect(cleared.requiredElectiveFilters).toEqual([]);
+  });
   it("does not expose removed eligibility filters in state or tags", () => {
     expect(Object.keys(base())).not.toEqual(expect.arrayContaining(["courseLevelFilter", "prerequisiteFilter"]));
     expect(appliedFilterTags(base(), HIGH_CREDITS).map((tag) => tag.id)).toEqual(["weekdays", "categories"]);

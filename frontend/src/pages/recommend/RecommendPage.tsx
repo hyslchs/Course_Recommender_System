@@ -204,6 +204,7 @@ export function RecommendPage() {
       categoryFilters: applied.categoryFilters,
       courseTagFilters: applied.courseTagFilters,
       creditFilters: applied.creditFilters,
+      requiredElectiveFilters: applied.requiredElectiveFilters,
       completed,
       dismissedIds: dismissed.map((item) => item.id),
       preferredWeekdays: applied.preferredWeekdays,
