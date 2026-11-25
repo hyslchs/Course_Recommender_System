@@ -83,6 +83,7 @@ export function changedFilters(previous: RecommendFilters, next: RecommendFilter
     ...listUses("weekday", previous.preferredWeekdays, next.preferredWeekdays, weekdayToken),
     ...toggleUse("show_other_weekdays", previous.showOtherWeekdays, next.showOtherWeekdays),
     ...listUses("credits", previous.creditFilters, next.creditFilters, (value) => String(value)),
+    ...listUses("course_requirement", previous.requiredElectiveFilters, next.requiredElectiveFilters, (value) => value === "必修" ? "required" : "elective"),
     ...listUses("course_category", previous.categoryFilters, next.categoryFilters, (value) => value),
     ...toggleUse("conflict_filter", previous.includeScheduleInfo, next.includeScheduleInfo),
     ...toggleUse("include_unknown_schedule", previous.includeUnknownSchedule, next.includeUnknownSchedule),

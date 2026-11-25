@@ -223,7 +223,7 @@ export function getCourse(courseId: string): Promise<Course> {
 async function getCatalogSummaryWithSource(): Promise<CatalogSummaryLoad> {
   const parseStarted = performance.now();
   const manifest = await getManifest();
-  const key = artifactCacheKey(manifest, "catalog_summary", ["catalog-summary.json"]);
+  const key = artifactCacheKey(manifest, "catalog_summary", ["catalog-summary.json", "course-search-counts.json"]);
   const cached = await getRecord<{ id: string; data: CatalogSummaryPayload | CompressedCatalogSummaryPayload }>("catalogCache", key);
   const artifact = cached?.data ?? await getJson<CatalogSummaryPayload | CompressedCatalogSummaryPayload>("catalog_summary", "/api/v1/catalog/summary");
   const decompressStarted = performance.now();
@@ -250,7 +250,7 @@ async function decodeCatalogSummary(artifact: CompressedCatalogSummaryPayload): 
 
 export async function getCatalog(): Promise<Course[]> {
   const manifest = await getManifest();
-  const key = artifactCacheKey(manifest, "catalog", ["catalog.json"]);
+  const key = artifactCacheKey(manifest, "catalog", ["catalog.json", "course-search-counts.json"]);
   const cached = await getRecord<{ id: string; data: Course[] }>("catalogCache", key);
   if (cached) return cached.data;
   const catalog = await getJson<Course[]>("catalog_data", "/api/v1/catalog/data");

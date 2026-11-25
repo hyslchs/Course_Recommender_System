@@ -6,6 +6,7 @@ export const OFFICIAL_SECTIONS = [
 ] as const;
 
 export type BroadTimeFilter = "daytime" | "evening" | "weekday_evening_or_saturday";
+export type RequiredElectiveFilter = "必修" | "選修";
 export type ClassTimeFilter =
   | { mode: "all" }
   | { mode: "broad"; value: BroadTimeFilter }
@@ -96,6 +97,15 @@ function matchesOnline(course: CourseSummary, filter: OnlineTeachingFilter): boo
   if (filter.kind === "async") return value.async;
   if (filter.kind === "both") return value.sync && value.async;
   return value.sync || value.async;
+}
+
+/**
+ * The required/elective filter is intentionally independent of department.
+ * Category filters are applied by each search surface before this helper and
+ * take precedence when both kinds of filter are present.
+ */
+export function matchesRequiredElectiveFilters(course: CourseSummary, selected: RequiredElectiveFilter[]): boolean {
+  return selected.length === 0 || selected.includes(course.required_elective_name as RequiredElectiveFilter);
 }
 
 export function matchesAdvancedCourseFilters(course: CourseSummary, filters: AdvancedCourseFilters): boolean {

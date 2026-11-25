@@ -10,6 +10,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from fju_outline.course_search import (
+    COURSE_SEARCH_COUNTS_FILENAME,
+    validate_course_search_counts_payload,
+)
+
 MODEL_ID = "google/embeddinggemma-300m"
 MODEL_REVISION = "57c266a740f537b4dc058e1b0cda161fd15afa75"
 DOCUMENT_PROMPT = "title: {title} | text: {text}"
@@ -23,7 +28,7 @@ REQUIRED_FILES = (
     "query-route-embeddings.f32",
     "query-route-index.json",
 )
-OPTIONAL_FILES = ("catalog-summary.json",)
+OPTIONAL_FILES = ("catalog-summary.json", COURSE_SEARCH_COUNTS_FILENAME)
 
 
 def sha256(path: Path) -> str:
@@ -122,7 +127,10 @@ def verify_bundle(
     # optional for older immutable bundles so the application-level legacy
     # fallback remains deployable, but verify it as strictly as every required
     # artifact whenever it is present.
-    files_to_verify = (*REQUIRED_FILES, *(name for name in OPTIONAL_FILES if (artifact_dir / name).exists()))
+    files_to_verify = (
+        *REQUIRED_FILES,
+        *(name for name in OPTIONAL_FILES if name in manifest_files or (artifact_dir / name).exists()),
+    )
     for name in files_to_verify:
         path = artifact_dir / name
         if not path.is_file():
@@ -161,6 +169,10 @@ def verify_bundle(
         raise ValueError("embedding index dimension mismatch")
     if (artifact_dir / "course-embeddings.f32").stat().st_size != canonical_count * 768 * 4:
         raise ValueError("course embedding byte length mismatch")
+    course_search_counts_path = artifact_dir / COURSE_SEARCH_COUNTS_FILENAME
+    if course_search_counts_path.exists():
+        payload = json.loads(course_search_counts_path.read_text(encoding="utf-8"))
+        validate_course_search_counts_payload(payload, index_ids)
 
     route_index = json.loads((artifact_dir / "query-route-index.json").read_text(encoding="utf-8"))
     route_ids = [str(row.get("route_id") or row.get("id") or "") for row in route_index.get("routes", [])]

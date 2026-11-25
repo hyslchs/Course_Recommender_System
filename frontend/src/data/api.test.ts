@@ -42,6 +42,26 @@ describe("artifact cache keys", () => {
     expect(key).toContain("embedding-index.json=index-a");
     expect(key).toContain("course-embeddings.f32=vectors-a");
   });
+
+  it("changes the catalog cache key when course-search counts change", () => {
+    const withCounts = {
+      ...manifest,
+      files: {
+        ...manifest.files,
+        "course-search-counts.json": { sha256: "counts-a", bytes: 10 },
+      },
+    };
+    const changed = {
+      ...withCounts,
+      files: {
+        ...withCounts.files,
+        "course-search-counts.json": { sha256: "counts-b", bytes: 10 },
+      },
+    };
+    expect(artifactCacheKey(withCounts, "catalog", ["catalog.json", "course-search-counts.json"])).not.toBe(
+      artifactCacheKey(changed, "catalog", ["catalog.json", "course-search-counts.json"]),
+    );
+  });
 });
 
 describe("query embedding telemetry", () => {

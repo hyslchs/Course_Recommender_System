@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { eligibilityStatusLabels, eligibilityStatusShortLabels } from "@/domain/eligibility";
 import { recommendationCategoryLabels } from "@/domain/recommendation";
 import type { Course, EligibilityStatus, RecommendationCategory } from "@/domain/types";
-import { CourseCard, dcardCourseSearchUrl } from "./CourseCard";
+import { CourseCard, dcardCourseSearchUrl, formatCourseSearchCount } from "./CourseCard";
 import { CategoryChip, EligibilityChip } from "./statusPresentation";
 
 /**
@@ -195,5 +195,30 @@ describe("CourseCard", () => {
     expect(alert).toHaveTextContent("修課前請確認");
     expect(alert).toHaveTextContent("這門課去年停開過。");
     expect(container.querySelector(".alert__indicator")).not.toBeNull();
+  });
+  it("shows course-search counts in the collapsed card metadata", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<Providers><CourseCard course={course({
+      course_search_counts: { selectable_count: 55, external_count: 10 },
+    })} /></Providers>);
+    const card = screen.getByRole("article");
+    const meta = card.querySelector(".meta");
+    expect(meta).not.toBeNull();
+    expect(within(meta as HTMLElement).getByText("可選課人數：55")).toBeInTheDocument();
+    expect(within(meta as HTMLElement).getByText("外系人數：10")).toBeInTheDocument();
+    expect(card).not.toHaveTextContent("totNum");
+    expect(card).not.toHaveTextContent("outNum");
+
+    await user.click(screen.getByRole("button", { name: /查看課綱與判斷依據/ }));
+    expect(within(card.querySelector(".meta")!).getByText("可選課人數：55")).toBeInTheDocument();
+  });
+
+  it("renders zero and an em dash for course-search count values", () => {
+    render(<Providers><CourseCard course={course({
+      course_search_counts: { selectable_count: 0, external_count: null },
+    })} /></Providers>);
+    expect(screen.getByText("可選課人數：0")).toBeInTheDocument();
+    expect(screen.getByText("外系人數：—")).toBeInTheDocument();
+    expect(formatCourseSearchCount(undefined)).toBe("—");
   });
 });

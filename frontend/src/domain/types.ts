@@ -78,6 +78,11 @@ export interface CourseInstructor {
   name_en?: string;
 }
 
+export interface CourseSearchCounts {
+  selectable_count: number | null;
+  external_count: number | null;
+}
+
 export interface Course {
   course_id: string;
   ava_no: string;
@@ -85,6 +90,7 @@ export interface Course {
   name_en: string;
   credits: number | null;
   required_elective_name: string;
+  course_search_counts?: CourseSearchCounts | null;
   course_tags?: CourseTag[];
   academic_year: number;
   semester: number;

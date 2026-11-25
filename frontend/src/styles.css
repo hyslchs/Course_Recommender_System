@@ -520,6 +520,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 /* §4.4-4: no content text below 15px. `.meta span` was .78rem (12.5px) and the
    card description inherits HeroUI's `.card__description{text-sm}` (14px). */
 .course-card .meta span{font-size:.9375rem}
+.course-card .meta .course-search-count{font-variant-numeric:tabular-nums}
 .course-card .card__description{font-size:.9375rem;color:var(--muted)}
 .course-card .card__title{font-size:1.35rem;line-height:1.4;font-weight:600;color:inherit}
 .course-card .card__header{display:flex;flex-direction:column;gap:.35rem}

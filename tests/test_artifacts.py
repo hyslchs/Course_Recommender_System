@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 
 import numpy as np
 
@@ -8,9 +9,11 @@ from fju_outline.artifacts import (
     CATALOG_SCHEMA_VERSION,
     build_artifacts,
     deserialize_catalog_summary,
+    load_catalog_for_artifact,
     normalize_catalog_course_schema,
     validate_artifacts,
 )
+from fju_outline.course_search import build_course_search_counts_payload
 
 
 class FakeEncoder:
@@ -136,3 +139,42 @@ def test_catalog_preserves_official_course_tags():
 
     catalog = build_catalog_course(record)
     assert catalog["course_tags"] == record["course_tags"]
+
+
+def test_course_search_sidecar_attaches_to_catalog_without_changing_vectors(tmp_path):
+    output = tmp_path / "artifacts"
+    build_artifacts(
+        [_record("1", "資料科學"), _record("2", "人工智慧")],
+        output,
+        encoder=FakeEncoder(),
+        year=115,
+        semester=1,
+    )
+    vector_bytes_before = (output / "course-embeddings.f32").read_bytes()
+    payload = build_course_search_counts_payload(
+        [{"jonCouSn": 1, "totNum": 55, "outNum": 0}],
+        ["1", "2"],
+        metadata={"hy": 115, "ht": 1, "lcid": 1028, "sco_typ": 100},
+    )
+    sidecar_path = output / "course-search-counts.json"
+    sidecar_path.write_text(json.dumps(payload), encoding="utf-8")
+    manifest_path = output / "artifact-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["files"][sidecar_path.name] = {
+        "sha256": hashlib.sha256(sidecar_path.read_bytes()).hexdigest(),
+        "bytes": sidecar_path.stat().st_size,
+    }
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    validated = validate_artifacts(output)
+    index = json.loads((output / "embedding-index.json").read_text(encoding="utf-8"))
+    catalog = load_catalog_for_artifact(output, validated, index)
+    assert catalog[0]["course_search_counts"] == {
+        "selectable_count": 55,
+        "external_count": 0,
+    }
+    assert catalog[1]["course_search_counts"] == {
+        "selectable_count": None,
+        "external_count": None,
+    }
+    assert (output / "course-embeddings.f32").read_bytes() == vector_bytes_before

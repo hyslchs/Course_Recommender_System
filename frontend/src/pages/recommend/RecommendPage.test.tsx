@@ -94,6 +94,13 @@ describe("recommend page filters", () => {
     expect(fullFilters.getByRole("button", { name: "外系課程", pressed: false })).toBeInTheDocument();
     expect(fullFilters.getByRole("button", { name: "允許衝堂", pressed: false })).toBeInTheDocument();
 
+    expect(fullFilters.getByRole("button", { name: "必修", pressed: false })).toBeInTheDocument();
+    expect(fullFilters.getByRole("button", { name: "選修", pressed: false })).toBeInTheDocument();
+    await user.click(fullFilters.getByRole("button", { name: "必修", pressed: false }));
+    expect(fullFilters.getByRole("button", { name: "必修", pressed: true })).toBeInTheDocument();
+    expect(fullFilters.getByRole("button", { name: "本系必修", pressed: false })).toBeInTheDocument();
+    expect(fullFilters.getByRole("button", { name: "本系選修", pressed: false })).toBeInTheDocument();
+    expect(within(appliedFiltersNode()).getByText("修課性質：必修")).toBeInTheDocument();
     await user.click(fullFilters.getByRole("button", { name: "允許衝堂", pressed: false }));
     expect(fullFilters.getByRole("button", { name: "避開衝堂", pressed: true })).toBeInTheDocument();
     expect(dialog.querySelector(".recommend-filter-modal-summary")).toHaveTextContent("3 項條件已即時套用");

@@ -21,7 +21,7 @@ import { SearchSurface, useSearchResultImpression, useStableSearchSurface } from
 import { nextSearchStep, type SearchFlowState } from "@/analytics/searchFlow";
 import { getHighCreditOptions } from "@/domain/creditFilter";
 import { courseConflicts, evaluateEligibility, meetingsConflict } from "@/domain/eligibility";
-import { matchesAdvancedCourseFilters } from "@/domain/courseFilters";
+import { matchesAdvancedCourseFilters, matchesRequiredElectiveFilters } from "@/domain/courseFilters";
 import { filterDepartmentOptions, type DepartmentOption } from "@/domain/departmentOptions";
 import { classifyRecommendationCategory, matchesTimeOfDayFilter } from "@/domain/recommendation";
 import { weekdayLabels } from "@/domain/schedule";
@@ -152,6 +152,7 @@ function matchesExploreFilters(
   if (filters.creditFilters.length > 0 && (course.credits === null || !filters.creditFilters.includes(course.credits))) return false;
   if (filters.courseTagFilters.length > 0 && !(course.course_tags ?? []).some((tag) => filters.courseTagFilters.includes(tag.code))) return false;
   if (filters.categoryFilters.length > 0 && !filters.categoryFilters.includes(classifyRecommendationCategory(course, profile))) return false;
+  if (filters.categoryFilters.length === 0 && !matchesRequiredElectiveFilters(course, filters.requiredElectiveFilters)) return false;
   return true;
 }
 
