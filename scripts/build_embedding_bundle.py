@@ -22,6 +22,10 @@ from fju_outline.artifacts import (
     EmbeddingGemmaEncoder,
     build_artifacts,
 )
+from fju_outline.course_search import (
+    COURSE_SEARCH_COUNTS_FILENAME,
+    build_course_search_counts_payload,
+)
 from fju_outline.io import iter_jsonl
 
 
@@ -49,10 +53,24 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--year", type=int, default=115)
     parser.add_argument("--semester", type=int, default=1)
     parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument(
+        "--course-search-basic",
+        type=Path,
+        help="Optional Scrapling basic course-search JSONL used to build the count sidecar.",
+    )
+    parser.add_argument(
+        "--course-search-metadata",
+        type=Path,
+        help="Optional metadata.json produced alongside --course-search-basic.",
+    )
     args = parser.parse_args(argv)
 
     if not args.canonical.is_file():
         raise SystemExit(f"canonical file not found: {args.canonical}")
+    if args.course_search_basic and not args.course_search_basic.is_file():
+        raise SystemExit(f"course-search basic JSONL not found: {args.course_search_basic}")
+    if args.course_search_metadata and not args.course_search_metadata.is_file():
+        raise SystemExit(f"course-search metadata not found: {args.course_search_metadata}")
     if args.output.exists() or args.lock_output.exists():
         raise SystemExit("refusing to overwrite an existing artifact output or lock")
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -83,6 +101,29 @@ def main(argv: list[str] | None = None) -> int:
             semester=args.semester,
             batch_size=args.batch_size,
         )
+        if args.course_search_basic:
+            basic_rows = [
+                json.loads(line)
+                for line in args.course_search_basic.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+            metadata = {}
+            if args.course_search_metadata and args.course_search_metadata.is_file():
+                metadata = json.loads(args.course_search_metadata.read_text(encoding="utf-8"))
+            index = json.loads((temporary / "embedding-index.json").read_text(encoding="utf-8"))
+            target_ids = index.get("course_ids") or [
+                row["course_id"] for row in index.get("rows", [])
+            ]
+            sidecar = build_course_search_counts_payload(
+                basic_rows,
+                target_ids,
+                metadata=metadata,
+                basic_snapshot_sha256=sha256(args.course_search_basic),
+            )
+            (temporary / COURSE_SEARCH_COUNTS_FILENAME).write_text(
+                json.dumps(sidecar, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
         manifest_path = temporary / "artifact-manifest.json"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         route_index = json.loads((temporary / "query-route-index.json").read_text(encoding="utf-8"))
@@ -119,6 +160,12 @@ def main(argv: list[str] | None = None) -> int:
                 "algorithm": "section-pooling-v1",
             },
         })
+        if args.course_search_basic:
+            sidecar_path = temporary / COURSE_SEARCH_COUNTS_FILENAME
+            manifest["files"][COURSE_SEARCH_COUNTS_FILENAME] = {
+                "sha256": sha256(sidecar_path),
+                "bytes": sidecar_path.stat().st_size,
+            }
         manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         temporary.rename(args.output)
 

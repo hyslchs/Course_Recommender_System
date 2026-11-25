@@ -67,6 +67,10 @@ function ExpandableText({ value }: { value: string }) {
 
 type CardCourse = CourseSummary | Course;
 
+export function formatCourseSearchCount(value: number | null | undefined): string {
+  return typeof value === "number" && Number.isFinite(value) ? String(value) : "—";
+}
+
 export function CourseCard({ course, alternatives, rank, searchPosition, reasons, cautions, matchedFields, recommendationCategory }: { course: CardCourse; alternatives?: CardCourse[]; rank?: number; searchPosition?: number; reasons?: string[]; cautions?: string[]; matchedFields?: string[]; recommendationCategory?: Recommendation["category"] }) {
   // Context, not props: 25 cards used to mean 25 IndexedDB reads of each store
   // and a three-level `profile` prop drill (plan §6.3-1 and §6.3-2).
@@ -260,6 +264,8 @@ export function CourseCard({ course, alternatives, rank, searchPosition, reasons
           <span>{selectedCourse.teacher || "教師未定"}</span>
           <span>{selectedCourse.credits} 學分</span>
           <span>{selectedCourse.required_elective_name}</span>
+          <span className="course-search-count">可選課人數：{formatCourseSearchCount(selectedCourse.course_search_counts?.selectable_count)}</span>
+          <span className="course-search-count">外系人數：{formatCourseSearchCount(selectedCourse.course_search_counts?.external_count)}</span>
         </div>
         {selectedCourse.course_tags?.length ? <div aria-label="官方課程標籤" className="official-course-tags">{selectedCourse.course_tags.map((tag) => <Chip key={tag.code} color="accent" variant="soft">{tag.label_zh}</Chip>)}</div> : null}
         <p className="meeting">{formatMeetings(selectedCourse)}</p>

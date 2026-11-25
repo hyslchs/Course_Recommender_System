@@ -23,6 +23,11 @@ from .eligibility import (
     infer_study_level,
     normalize_audience_department,
 )
+from .course_search import (
+    COURSE_SEARCH_COUNTS_FILENAME,
+    attach_course_search_counts,
+    validate_course_search_counts_payload,
+)
 from .query_routes import ROUTES, build_route_embeddings, route_data
 
 
@@ -113,6 +118,7 @@ CATALOG_SUMMARY_FIELDS = (
     "prerequisite",
     "eligibility_base_status",
     "eligibility_rules",
+    "course_search_counts",
     "source_url",
 )
 GRADE_RE = re.compile(r"^(.+?)([一二三四五六七])([甲乙丙丁戊己庚辛壬癸愛智仁勇忠孝信義和平]*)$")
@@ -547,6 +553,17 @@ def build_catalog_summary(catalog: list[dict[str, Any]]) -> dict[str, Any]:
         "courses": courses,
         "search_index": build_search_index_payload(catalog),
     }
+
+
+def _load_course_search_counts(
+    artifacts_dir: Path,
+    course_ids: Iterable[Any],
+) -> dict[str, dict[str, int | None]] | None:
+    path = artifacts_dir / COURSE_SEARCH_COUNTS_FILENAME
+    if not path.exists():
+        return None
+    payload = orjson.loads(path.read_bytes())
+    return validate_course_search_counts_payload(payload, course_ids)
 
 
 def serialize_catalog_summary(summary: dict[str, Any]) -> dict[str, Any]:
@@ -1165,6 +1182,13 @@ def validate_artifacts(output_dir: Path, *, verify_hashes: bool = True) -> dict[
         ]
         if missing:
             raise ValueError(f"Catalog schema is missing fields: {', '.join(missing)}")
+    course_search_counts_path = output_dir / COURSE_SEARCH_COUNTS_FILENAME
+    if course_search_counts_path.exists():
+        if COURSE_SEARCH_COUNTS_FILENAME not in entries:
+            raise ValueError(
+                f"Artifact manifest is missing {COURSE_SEARCH_COUNTS_FILENAME}"
+            )
+        _load_course_search_counts(output_dir, course_ids)
 
     route_index_path = output_dir / "query-route-index.json"
     route_vectors_path = output_dir / "query-route-embeddings.f32"
@@ -1261,7 +1285,12 @@ def load_catalog_for_artifact(
     raw_catalog = orjson.loads((artifacts_dir / "catalog.json").read_bytes())
     catalog_courses = _catalog_courses(raw_catalog)
     if isinstance(raw_catalog, list):
-        return [normalize_catalog_course_schema(item) for item in catalog_courses]
+        catalog = [normalize_catalog_course_schema(item) for item in catalog_courses]
+        counts = _load_course_search_counts(
+            artifacts_dir,
+            [item.get("course_id") for item in catalog],
+        )
+        return attach_course_search_counts(catalog, counts or {})
 
     from .io import iter_jsonl
 
@@ -1276,7 +1305,9 @@ def load_catalog_for_artifact(
     catalog = [by_course_id[course_id] for course_id in expected_ids]
     if len(catalog) != int(manifest["course_count"]):
         raise ValueError("Canonical catalog count does not match artifact manifest")
-    return [normalize_catalog_course_schema(item) for item in catalog]
+    catalog = [normalize_catalog_course_schema(item) for item in catalog]
+    counts = _load_course_search_counts(artifacts_dir, expected_ids)
+    return attach_course_search_counts(catalog, counts or {})
 
 
 def _route_identity(route: dict[str, Any]) -> str:

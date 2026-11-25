@@ -15,6 +15,8 @@ from scripts.verify_artifact_bundle import (
     QUERY_PROMPT_VERSION,
     verify_bundle,
 )
+from scripts.build_course_search_counts import main as build_course_search_counts
+from fju_outline.course_search import build_course_search_counts_payload
 
 
 ROUTE_IDS = ["capstone", "internship", "hands_on", "beginner", "career_goal", "research"]
@@ -58,6 +60,7 @@ def _make_bundle(tmp_path: Path) -> tuple[Path, Path, Path]:
         "document_prompt_version": DOCUMENT_PROMPT_VERSION,
         "query_prompt_template": QUERY_PROMPT,
         "query_prompt_version": QUERY_PROMPT_VERSION,
+        "normalization": "L2 normalization",
         "query_route_count": 6,
         "input_snapshot": {"canonical_jsonl": canonical_meta},
         "provenance": {"canonical_sha256": canonical_meta["sha256"]},
@@ -94,6 +97,45 @@ def test_verifier_accepts_complete_bundle(tmp_path):
     assert result["status"] == "verified"
     assert result["course_count"] == 2
     assert result["route_count"] == 6
+
+
+def test_verifier_accepts_course_search_counts_sidecar(tmp_path):
+    vector, canonical, lock = _make_bundle(tmp_path)
+    sidecar = vector / "course-search-counts.json"
+    sidecar.write_text(json.dumps(build_course_search_counts_payload(
+        [{"jonCouSn": "c1", "totNum": 55, "outNum": 0}],
+        ["c1", "c2"],
+    )), encoding="utf-8")
+
+    manifest_path = vector / "artifact-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    metadata = {"sha256": _sha256(sidecar), "bytes": sidecar.stat().st_size}
+    manifest["files"][sidecar.name] = metadata
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    lock_data = json.loads(lock.read_text(encoding="utf-8"))
+    lock_data["artifact"]["files"][sidecar.name] = metadata
+    lock_data["artifact"]["manifest_sha256"] = _sha256(manifest_path)
+    lock.write_text(json.dumps(lock_data), encoding="utf-8")
+
+    result = verify_bundle(artifact_dir=vector, canonical=canonical, lock=lock)
+    assert result["status"] == "verified"
+
+
+def test_course_search_count_builder_updates_manifest_and_lock_without_vectors(tmp_path):
+    vector, canonical, lock = _make_bundle(tmp_path)
+    before = (vector / "course-embeddings.f32").read_bytes()
+    basic = tmp_path / "basic.jsonl"
+    basic.write_text(json.dumps({"jonCouSn": "c1", "totNum": 55, "outNum": 0}) + "\n", encoding="utf-8")
+
+    assert build_course_search_counts([
+        "--basic", str(basic),
+        "--artifact-dir", str(vector),
+        "--lock", str(lock),
+    ]) == 0
+    assert (vector / "course-embeddings.f32").read_bytes() == before
+    result = verify_bundle(artifact_dir=vector, canonical=canonical, lock=lock)
+    assert result["status"] == "verified"
 
 
 def test_verifier_rejects_canonical_provenance_change(tmp_path):

@@ -38,6 +38,7 @@ from .analytics import (
 from .analytics_dashboard import DASHBOARD_HTML
 from .artifacts import (
     CATALOG_SCHEMA_VERSION,
+    COURSE_SEARCH_COUNTS_FILENAME,
     build_catalog_summary,
     deserialize_catalog_summary,
     DEFAULT_MODEL,
@@ -153,6 +154,7 @@ class ArtifactStore:
         self.index = normalize_embedding_index(raw_index, self.manifest)
         self.catalog = load_catalog_for_artifact(artifacts_dir, self.manifest, raw_index)
         self.by_id = {str(item["course_id"]): item for item in self.catalog}
+        self.has_course_search_counts = (artifacts_dir / COURSE_SEARCH_COUNTS_FILENAME).exists()
         summary_path = artifacts_dir / "catalog-summary.json"
         self.catalog_summary = self._load_catalog_summary(summary_path)
         # Some older bundles do not carry the pre-serialized summary. Build the
@@ -160,7 +162,9 @@ class ArtifactStore:
         # recommendation-page request makes a 4k-course catalog look like an
         # API/embedding problem and can block the server thread for seconds.
         self.catalog_summary_payload = (
-            None if summary_path.exists() else serialize_catalog_summary(self.catalog_summary)
+            serialize_catalog_summary(self.catalog_summary)
+            if self.has_course_search_counts
+            else None if summary_path.exists() else serialize_catalog_summary(self.catalog_summary)
         )
         dataset_year = artifacts_dir.name.split("-", 1)[0]
         self.academic_year = int(
@@ -190,6 +194,13 @@ class ArtifactStore:
                     and int(summary.get("course_count", -1)) == len(self.catalog)
                     and [str(item.get("course_id")) for item in summary.get("courses", [])]
                     == [str(item.get("course_id")) for item in self.catalog]
+                    and (
+                        not self.has_course_search_counts
+                        or all(
+                            item.get("course_search_counts") == course.get("course_search_counts")
+                            for item, course in zip(summary.get("courses", []), self.catalog)
+                        )
+                    )
                 ):
                     return summary
             except (TypeError, ValueError, orjson.JSONDecodeError):
@@ -792,6 +803,11 @@ def register_routes(application: FastAPI) -> None:
     @application.get("/api/v1/catalog/data")
     def catalog_data(request: Request) -> Response:
         store = require_store(request)
+        if store.has_course_search_counts:
+            return JSONResponse(
+                store.catalog,
+                headers={"Cache-Control": "public, max-age=86400"},
+            )
         if store.manifest.get("catalog_schema_version") != CATALOG_SCHEMA_VERSION:
             # Legacy artifacts are normalized in ArtifactStore; return that
             # migrated view instead of serving the unnormalized JSON file.
@@ -806,7 +822,7 @@ def register_routes(application: FastAPI) -> None:
     def catalog_summary(request: Request) -> Response:
         store = require_store(request)
         summary_path = store.artifacts_dir / "catalog-summary.json"
-        if summary_path.exists():
+        if summary_path.exists() and not store.has_course_search_counts:
             return FileResponse(
                 summary_path,
                 media_type="application/json",

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import builtins
+import hashlib
 import json
 import threading
 import time
@@ -13,6 +14,7 @@ from fastapi.testclient import TestClient
 from starlette.requests import Request
 
 from fju_outline.artifacts import build_artifacts, deserialize_catalog_summary
+from fju_outline.course_search import build_course_search_counts_payload
 import fju_outline.web as web_module
 from fju_outline.web import ArtifactStore, QueryEncoder, RateLimiter, create_app, get_rate_limit_client_key
 
@@ -123,6 +125,36 @@ def test_health_catalog_and_embedding_api(tmp_path):
         response = client.post("/api/v1/query-embedding", json={"text": "我想學資料分析"})
         assert response.status_code == 200
         assert response.json()["dimension"] == 3
+
+
+def test_course_search_counts_are_exposed_without_other_search_fields(tmp_path):
+    output = tmp_path / "artifacts"
+    build_artifacts([_record("1", "資料科學")], output, encoder=FakeEncoder(), year=115, semester=1)
+    sidecar_path = output / "course-search-counts.json"
+    sidecar_path.write_text(
+        json.dumps(build_course_search_counts_payload(
+            [{"jonCouSn": 1, "totNum": 55, "outNum": 0, "authCodeTag": "否"}],
+            ["1"],
+            metadata={"hy": 115, "ht": 1, "lcid": 1028, "sco_typ": 100},
+        )),
+        encoding="utf-8",
+    )
+    manifest_path = output / "artifact-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["files"][sidecar_path.name] = {
+        "sha256": hashlib.sha256(sidecar_path.read_bytes()).hexdigest(),
+        "bytes": sidecar_path.stat().st_size,
+    }
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    app = create_app(store=ArtifactStore(output), query_encoder=FakeQueryEncoder(), load_runtime=False)
+
+    with TestClient(app) as client:
+        item = client.get("/api/v1/courses?page=1&page_size=5").json()["items"][0]
+        assert item["course_search_counts"] == {"selectable_count": 55, "external_count": 0}
+        assert "totNum" not in item
+        assert "outNum" not in item
+        summary = deserialize_catalog_summary(client.get("/api/v1/catalog/summary").json())
+        assert summary["courses"][0]["course_search_counts"] == item["course_search_counts"]
 
 
 def test_missing_catalog_summary_is_serialized_once_at_store_start(tmp_path, monkeypatch):
